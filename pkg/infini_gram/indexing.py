@@ -81,6 +81,16 @@ def tokenize(args):
         # # The following is a faster version, but the result is a bit different
         # from dolma.tokenizer import Tokenizer
         # tokenizer = Tokenizer.from_pretrained('allenai/gpt-neox-olmo-dolma-v1_5', bos_token_id=None, eos_token_id=None, pad_token_id=1, segment_before_tokenization=True)
+    elif args.tokenizer in ('dolma2', 'allenai/dolma2-tokenizer'):
+        # Dolma2 tokenizer has a larger vocab; auto-upgrade token dtype to u32 if necessary.
+        tokenizer = transformers.AutoTokenizer.from_pretrained('allenai/dolma2-tokenizer', add_bos_token=False, add_eos_token=False)
+        vocab_size = len(tokenizer)
+        if vocab_size > 65535 and args.token_width < 4:
+            print(f'[dolma2-tokenizer] vocab size {vocab_size} exceeds 65535; switching token dtype to u32', flush=True)
+            token_dtype = np.uint32
+            args.token_dtype = 'u32'
+            args.token_width = 4
+            args.doc_sep = b'\xff\xff\xff\xff'
     else:
         raise ValueError(f'Unknown tokenizer: {args.tokenizer}')
 
@@ -249,7 +259,7 @@ def main():
     parser.add_argument('--temp_dir', type=str, default=None, help='Directory where temporary indexing files are stored. Must be absolute path.')
     parser.add_argument('--save_dir', type=str, required=True, help='Directory where the final index files are stored. Must be absolute path.')
     parser.add_argument('--version', type=int, default=4, choices=[4, 5], help='Version of the index.')
-    parser.add_argument('--tokenizer', type=str, default=None, choices=[None, 'gpt2', 'llama', 'olmo'])
+    parser.add_argument('--tokenizer', type=str, default=None, choices=[None, 'gpt2', 'llama', 'olmo', 'dolma2', 'allenai/dolma2-tokenizer'])
     parser.add_argument('--token_dtype', type=str, default='u16', choices=['u8', 'u16', 'u32'], help='Data type for tokens.')
     parser.add_argument('--add_metadata', default=False, action='store_true', help='Whether to store document metadata in the index.')
     parser.add_argument('--add_unigram', default=False, action='store_true', help='Whether to precompute unigram counts.')
